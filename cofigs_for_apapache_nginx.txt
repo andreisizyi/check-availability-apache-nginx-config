@@ -1,0 +1,71 @@
+### Настройка 404 Apache
+
+#Переадресация на 404 в локальной директории conf (меньше запросов быстрее ответ чем .htaccess, если есть доступ к серверу)
+<Directory "G:/Programs/laragon/www/test">
+		#Проверяю есть ли модуль, с которым собираюсь работать воизбежание ошибки
+		<IfModule mod_rewrite.c>
+			RewriteEngine On
+			#Если реферер google в любом регистре (no case flag)
+			RewriteCond %{HTTP_REFERER} ^(.*)\.google\.(.*) [NC]
+			#Если не googlebot
+			RewriteCond %{HTTP_USER_AGENT} !Googlebot
+				#Редирект c любых символов на 404 (флаг R останавливает преобразование и производит редирект)
+				RewriteRule (.*) / [R=404]
+		</IfModule>
+</Directory>
+
+#Переадресация на 404 .htaccess (не требуеться перезагрузка Apache в отличие от .conf)
+<IfModule mod_rewrite.c>
+	RewriteEngine On
+	#Если реферер google в любом регистре (no case flag)
+	RewriteCond %{HTTP_REFERER} !^(.*)\.google\.(.*) [NC]
+	#Если не googlebot
+	RewriteCond %{HTTP_USER_AGENT} !Googlebot
+	#Редирект c любых символов на 404 (флаг R останавливает преобразование и производит редирект)
+	RewriteRule (.*) / [R=404]
+</IfModule>
+
+#Переадресация на 404 по IP
+<IfModule mod_rewrite.c>
+    #Указываю использование RewriteEngine
+    RewriteEngine On
+    #Условие на IP
+    RewriteCond %{REMOTE_ADDR} 176.36.200.211
+    	#Отправляю на 404
+    	RewriteRule (.*) / [R=404]
+</IfModule>
+
+### Настройка 404 Nginx
+
+#Переадресация на 404 по IP
+server {
+	# ...
+	location / {
+		if ($remote_addr = 127.0.0.1){
+			return 404;
+		}
+	}
+}
+
+server {
+	# ...
+	location / {
+		#Устанавливаю переменную для контроля выполнения условий
+		set $i 0;
+		#Регистронезависимое соотношение ~* для бота
+		if ($http_user_agent !~* Googlebot) {
+			set $i 1;
+		}
+		#Регистронезависимое соотношение ~* с регулярным выражением для гугл поисковика
+		if ($http_referer ~* ^(.*)\.google\.(.*)) {
+			#Конкатенирую текущее значение с 1
+			set $i "${$i}1";
+		}
+		if ($i = "11") {
+			#Если оба условия выполнись одновременно, а тоесть зашел не гугл бот и реферер не google то вывожу ошибку 404, это правило позволяет отдать 200 гугл боту, даже если его реферер google.
+			return 404;
+		}
+	}
+}
+
+#Проверку работоспособности осуществлял при помощи плагина для браузера с подменой реферера, а также агента.
